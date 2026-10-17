@@ -7,7 +7,14 @@
 #include <objidl.h>
 #include <commctrl.h>
 #include <dwmapi.h>
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#pragma warning(push)
+#pragma warning(disable: 4458)
 #include <gdiplus.h>
+#pragma warning(pop)
+#undef min
+#undef max
 #include <new>
 #include <algorithm>
 #include "progress.h"

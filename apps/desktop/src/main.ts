@@ -4,6 +4,7 @@ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import {
   app,
   BrowserWindow,
@@ -40,10 +41,29 @@ import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
 import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
 import { readDesktopRuntime } from './runtime-tree.ts'
 
+// Keep Electron's browser-owned data beside the configured Harness home. This
+// is separate from DSH sessions, settings, and plugin files, but follows the
+// same DSH_HOME override so upgrades keep one stable UI profile.
+const desktopUserData = join(resolveDshHome(), 'desktop-user-data')
+app.setPath('userData', desktopUserData)
+app.setPath('sessionData', join(desktopUserData, 'session'))
+app.setPath('cache', join(desktopUserData, 'cache'))
+
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
 let shuttingDown = false
 let windowsLanguage: string | undefined
+
+// Windows hybrid-GPU systems can crash Electron 44's GPU process before the
+// desktop document is available. Keep the official shell usable by selecting
+// Chromium's software path before Electron creates any renderer; this does
+// not change DSH profiles, plugins, or the Web runtime.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('in-process-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
+  app.commandLine.appendSwitch('use-gl', 'swiftshader')
+}
 
 function currentDesktopLocale(): ReturnType<typeof resolveDesktopLocale> {
   return resolveDesktopLocale(windowsLanguage ?? app.getLocale())
@@ -135,7 +155,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
       preload,
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false,
       webSecurity: true,
     },
   })
